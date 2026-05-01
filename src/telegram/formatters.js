@@ -57,10 +57,11 @@ function helpMessage() {
     `*Social Accounts*\n` +
     `  /accounts — View connected platforms\n\n` +
 
-    `*Content* _(coming soon)_\n` +
+    `*Content*\n` +
     `  /create — Generate & publish content\n` +
-    `  /drafts — View saved drafts\n` +
-    `  /schedule — Schedule a post\n\n` +
+    `  /post — Alias for /create\n` +
+    `  /drafts — View saved drafts \_(coming soon)_\n` +
+    `  /schedule — Schedule a post \_(coming soon)_\n\n` +
 
     `💡 *Tip:* Link your account first with /link\\.`
   );
