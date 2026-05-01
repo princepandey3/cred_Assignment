@@ -1,0 +1,217 @@
+// ============================================================
+// Prisma Schema — AI Content Publishing API
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────
+
+enum Platform {
+  TWITTER
+  LINKEDIN
+  INSTAGRAM
+  FACEBOOK
+  THREADS
+  MEDIUM
+  DEVTO
+}
+
+enum PostType {
+  THREAD
+  ARTICLE
+  SHORT_FORM
+  LONG_FORM
+  CAROUSEL
+  STORY
+}
+
+enum Tone {
+  PROFESSIONAL
+  CASUAL
+  HUMOROUS
+  INSPIRATIONAL
+  EDUCATIONAL
+  PERSUASIVE
+  STORYTELLING
+}
+
+enum Language {
+  EN
+  ES
+  FR
+  DE
+  PT
+  HI
+  ZH
+  JA
+  AR
+}
+
+enum PostStatus {
+  DRAFT
+  SCHEDULED
+  PROCESSING
+  PUBLISHED
+  FAILED
+  CANCELLED
+}
+
+enum PlatformPostStatus {
+  PENDING
+  PUBLISHING
+  PUBLISHED
+  FAILED
+  SKIPPED
+}
+
+// ─── Models ──────────────────────────────────────────────────
+
+/// A registered user of the platform.
+model User {
+  id               String    @id @default(uuid()) @db.Uuid
+  email            String    @unique @db.VarChar(255)
+  passwordHash     String    @map("password_hash") @db.VarChar(255)
+  name             String    @db.VarChar(150)
+  bio              String?   @db.Text
+  defaultTone      Tone      @default(PROFESSIONAL) @map("default_tone")
+  defaultLanguage  Language  @default(EN) @map("default_language")
+  isActive         Boolean   @default(true) @map("is_active")
+  emailVerifiedAt  DateTime? @map("email_verified_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  socialAccounts SocialAccount[]
+  aiKeys         AiKey[]
+  posts          Post[]
+
+  @@index([email])
+  @@index([createdAt])
+  @@map("users")
+}
+
+/// A connected social/publishing platform account per user.
+model SocialAccount {
+  id                String    @id @default(uuid()) @db.Uuid
+  userId            String    @map("user_id") @db.Uuid
+  platform          Platform
+  /// AES-256-GCM encrypted OAuth access token
+  accessTokenEnc    String    @map("access_token_enc") @db.Text
+  /// AES-256-GCM encrypted OAuth refresh token (nullable for non-OAuth platforms)
+  refreshTokenEnc   String?   @map("refresh_token_enc") @db.Text
+  handle            String    @db.VarChar(100)
+  /// Unix timestamp when token expires (null = non-expiring)
+  tokenExpiresAt    DateTime? @map("token_expires_at")
+  isActive          Boolean   @default(true) @map("is_active")
+  connectedAt       DateTime  @default(now()) @map("connected_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platformPosts PlatformPost[]
+
+  // A user can only connect one account per platform
+  @@unique([userId, platform])
+  @@index([userId])
+  @@index([platform])
+  @@index([tokenExpiresAt])
+  @@map("social_accounts")
+}
+
+/// Encrypted AI provider API keys per user.
+/// One row per user — upserted on update.
+model AiKey {
+  id                  String    @id @default(uuid()) @db.Uuid
+  userId              String    @unique @map("user_id") @db.Uuid
+  /// AES-256-GCM encrypted OpenAI API key
+  openaiKeyEnc        String?   @map("openai_key_enc") @db.Text
+  /// AES-256-GCM encrypted Anthropic API key
+  anthropicKeyEnc     String?   @map("anthropic_key_enc") @db.Text
+  /// AES-256-GCM encrypted Google Gemini API key
+  geminiKeyEnc        String?   @map("gemini_key_enc") @db.Text
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("ai_keys")
+}
+
+/// A content generation job — the "master" post record.
+model Post {
+  id          String     @id @default(uuid()) @db.Uuid
+  userId      String     @map("user_id") @db.Uuid
+  /// The raw idea / prompt the user submitted
+  idea        String     @db.Text
+  postType    PostType   @map("post_type")
+  tone        Tone
+  language    Language   @default(EN)
+  /// Which AI model was used to generate this post
+  modelUsed   String     @map("model_used") @db.VarChar(100)
+  /// Optional scheduling time; null means publish immediately
+  publishAt   DateTime?  @map("publish_at")
+  status      PostStatus @default(DRAFT)
+  /// Soft-delete support
+  deletedAt   DateTime?  @map("deleted_at")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  // Relations
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platformPosts PlatformPost[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([publishAt])
+  @@index([userId, status])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([deletedAt])
+  @@map("posts")
+}
+
+/// Per-platform rendition of a Post — one row per target platform.
+model PlatformPost {
+  id             String             @id @default(uuid()) @db.Uuid
+  postId         String             @map("post_id") @db.Uuid
+  /// Which connected social account was used (nullable if account was removed)
+  socialAccountId String?           @map("social_account_id") @db.Uuid
+  platform       Platform
+  /// The final, platform-specific content that was (or will be) published
+  content        String             @db.Text
+  /// Structured metadata: char count, hashtags, media refs, etc.
+  metadata       Json?              @db.JsonB
+  status         PlatformPostStatus @default(PENDING)
+  /// External post ID returned by the platform API after publishing
+  externalId     String?            @map("external_id") @db.VarChar(255)
+  publishedAt    DateTime?          @map("published_at")
+  /// Last error message from the platform API
+  errorMessage   String?            @map("error_message") @db.Text
+  /// Number of publish attempts (for retry logic)
+  attempts       Int                @default(0)
+  /// Timestamp of the most recent attempt
+  lastAttemptAt  DateTime?          @map("last_attempt_at")
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+
+  // Relations
+  post          Post           @relation(fields: [postId], references: [id], onDelete: Cascade)
+  socialAccount SocialAccount? @relation(fields: [socialAccountId], references: [id], onDelete: SetNull)
+
+  // One platform rendition per post per platform
+  @@unique([postId, platform])
+  @@index([postId])
+  @@index([platform])
+  @@index([status])
+  @@index([status, publishedAt])
+  @@index([socialAccountId])
+  @@map("platform_posts")
+}

@@ -4,6 +4,7 @@ const { StatusCodes } = require('http-status-codes');
 const logger = require('../utils/logger');
 const ApiResponse = require('../utils/apiResponse');
 const config = require('../config');
+const { SecurityError } = require('../services/security.service');
 
 /**
  * Central error-handling middleware — must be the LAST middleware registered.
@@ -35,6 +36,12 @@ function errorHandler(err, req, res, _next) {
   // JWT errors
   if (err.name === 'JsonWebTokenError') return ApiResponse.unauthorized(res, 'Invalid token');
   if (err.name === 'TokenExpiredError') return ApiResponse.unauthorized(res, 'Token expired');
+
+  // Security / crypto errors — never leak internal details
+  if (err instanceof SecurityError) {
+    logger.warn('SecurityError caught', { code: err.code });
+    return ApiResponse.error(res, 'A security operation failed', StatusCodes.INTERNAL_SERVER_ERROR);
+  }
 
   // Operational / known errors (thrown intentionally)
   if (err.isOperational) {
