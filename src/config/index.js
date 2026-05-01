@@ -7,38 +7,38 @@ require('dotenv').config();
  * normalized here so the rest of the app never reads process.env directly.
  */
 const config = {
-  env: process.env.NODE_ENV || 'development',
-  isDev: process.env.NODE_ENV !== 'production',
+  env:    process.env.NODE_ENV || 'development',
+  isDev:  process.env.NODE_ENV !== 'production',
   isProd: process.env.NODE_ENV === 'production',
 
   server: {
-    port: parseInt(process.env.PORT, 10) || 3000,
+    port:       parseInt(process.env.PORT, 10) || 3000,
     apiVersion: process.env.API_VERSION || 'v1',
   },
 
   db: {
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT, 10) || 5432,
-    username: process.env.DB_USER || 'ai_content_user',
+    host:     process.env.DB_HOST     || 'localhost',
+    port:     parseInt(process.env.DB_PORT, 10) || 5432,
+    username: process.env.DB_USER     || 'ai_content_user',
     password: process.env.DB_PASSWORD || 'supersecret',
-    database: process.env.DB_NAME || 'ai_content_db',
-    dialect: 'postgres',
+    database: process.env.DB_NAME     || 'ai_content_db',
+    dialect:  'postgres',
     pool: {
-      max: parseInt(process.env.DB_POOL_MAX, 10) || 10,
-      min: parseInt(process.env.DB_POOL_MIN, 10) || 2,
+      max:     parseInt(process.env.DB_POOL_MAX, 10)     || 10,
+      min:     parseInt(process.env.DB_POOL_MIN, 10)     || 2,
       acquire: parseInt(process.env.DB_POOL_ACQUIRE, 10) || 30000,
-      idle: parseInt(process.env.DB_POOL_IDLE, 10) || 10000,
+      idle:    parseInt(process.env.DB_POOL_IDLE, 10)    || 10000,
     },
-    schema: 'content',
+    schema:  'content',
     logging: process.env.NODE_ENV === 'development' ? console.log : false,
   },
 
   redis: {
-    host: process.env.REDIS_HOST || 'localhost',
-    port: parseInt(process.env.REDIS_PORT, 10) || 6379,
+    host:     process.env.REDIS_HOST     || 'localhost',
+    port:     parseInt(process.env.REDIS_PORT, 10) || 6379,
     password: process.env.REDIS_PASSWORD || undefined,
-    db: parseInt(process.env.REDIS_DB, 10) || 0,
-    ttl: parseInt(process.env.REDIS_TTL_DEFAULT, 10) || 3600,
+    db:       parseInt(process.env.REDIS_DB, 10)  || 0,
+    ttl:      parseInt(process.env.REDIS_TTL_DEFAULT, 10) || 3600,
   },
 
   security: {
@@ -48,20 +48,28 @@ const config = {
       }
       return 'dev_jwt_secret_change_me';
     })(),
-    jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
-    jwtAccessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '15m',
+    jwtExpiresIn:        process.env.JWT_EXPIRES_IN         || '7d',
+    jwtAccessExpiresIn:  process.env.JWT_ACCESS_EXPIRES_IN  || '15m',
     jwtRefreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
-    corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    corsOrigin:          process.env.CORS_ORIGIN            || 'http://localhost:3000',
   },
 
   rateLimit: {
-    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS, 10) || 15 * 60 * 1000,
-    max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS, 10) || 100,
+    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS, 10)    || 15 * 60 * 1000,
+    max:      parseInt(process.env.RATE_LIMIT_MAX_REQUESTS, 10) || 100,
   },
 
   logging: {
-    level: process.env.LOG_LEVEL || 'debug',
+    level:    process.env.LOG_LEVEL     || 'debug',
     filePath: process.env.LOG_FILE_PATH || './logs/app.log',
+  },
+
+  telegram: {
+    botToken:      process.env.TELEGRAM_BOT_TOKEN      || '',
+    webhookSecret: process.env.TELEGRAM_WEBHOOK_SECRET || '',
+    // Public HTTPS domain Telegram will POST updates to, e.g. https://api.example.com
+    // Full webhook URL = webhookDomain + /api/v1/telegram/webhook
+    webhookDomain: process.env.TELEGRAM_WEBHOOK_DOMAIN || '',
   },
 };
 

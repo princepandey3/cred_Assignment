@@ -9,9 +9,10 @@ const router = Router();
 router.use('/health', healthRouter);
 
 // --- Domain routers ---
-router.use('/auth', require('./auth'));
-router.use('/user', require('./user'));
-router.use('/user', require('./credentials'));
+router.use('/auth',     require('./auth'));
+router.use('/user',     require('./user'));
+router.use('/user',     require('./credentials'));
+router.use('/telegram', require('./telegram'));
 // router.use('/content',  require('./content'));
 // router.use('/platforms',require('./platforms'));
 // router.use('/publish',  require('./publish'));

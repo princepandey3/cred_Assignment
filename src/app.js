@@ -1,30 +1,30 @@
 'use strict';
 
 const express = require('express');
-const helmet = require('helmet');
-const cors = require('cors');
+const helmet  = require('helmet');
+const cors    = require('cors');
 const compression = require('compression');
 
-const config = require('./config');
+const config        = require('./config');
 const requestLogger = require('./middlewares/requestLogger');
 const { defaultLimiter } = require('./middlewares/rateLimiter');
 const { errorHandler, notFoundHandler } = require('./middlewares/errorHandler');
-const routes = require('./routes');
+const routes        = require('./routes');
 
 function createApp() {
   const app = express();
 
   // ─── Security ──────────────────────────────────────────────────
-  app.use(helmet());                // Sets secure HTTP headers
+  app.use(helmet());
   app.use(cors({
-    origin: config.security.corsOrigin,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    origin:         config.security.corsOrigin,
+    methods:        ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true,
+    credentials:    true,
   }));
 
   // ─── Performance ───────────────────────────────────────────────
-  app.use(compression());           // Gzip responses
+  app.use(compression());
 
   // ─── Body Parsing ──────────────────────────────────────────────
   app.use(express.json({ limit: '10mb' }));
@@ -34,7 +34,13 @@ function createApp() {
   app.use(requestLogger);
 
   // ─── Rate Limiting ─────────────────────────────────────────────
-  app.use(defaultLimiter);
+  // Exclude the Telegram webhook — it has its own limiter on the route
+  app.use((req, res, next) => {
+    if (req.path.startsWith(`/api/${config.server.apiVersion}/telegram/webhook`)) {
+      return next();
+    }
+    return defaultLimiter(req, res, next);
+  });
 
   // ─── API Routes ────────────────────────────────────────────────
   app.use(`/api/${config.server.apiVersion}`, routes);

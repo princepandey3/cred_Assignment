@@ -84,6 +84,7 @@ model User {
   defaultLanguage  Language  @default(EN) @map("default_language")
   isActive         Boolean   @default(true) @map("is_active")
   emailVerifiedAt  DateTime? @map("email_verified_at")
+  telegramId       String?   @unique @map("telegram_id") @db.VarChar(32)
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt @map("updated_at")
 
