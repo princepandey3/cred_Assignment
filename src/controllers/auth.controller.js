@@ -3,103 +3,109 @@
 /**
  * AuthController
  * ═══════════════════════════════════════════════════════════════
- * Thin HTTP adapter layer.
- * Responsibilities:
- *   • Extract validated input from req.body
- *   • Call the auth service
- *   • Format and return the response
+ * Thin HTTP adapter — extracts validated input, delegates to
+ * AuthService, and formats responses.  Zero business logic here.
  *
- * NO business logic lives here — everything is delegated to
- * AuthService. Controllers never touch the DB or Redis directly.
+ * Endpoints:
+ *   POST   /api/v1/auth/register
+ *   POST   /api/v1/auth/login
+ *   POST   /api/v1/auth/refresh
+ *   POST   /api/v1/auth/logout
+ *   GET    /api/v1/auth/me        ← NEW (Step 5)
  * ═══════════════════════════════════════════════════════════════
  */
 
 const { StatusCodes } = require('http-status-codes');
-const authService = require('../services/auth.service');
-const ApiResponse = require('../utils/apiResponse');
+const authService  = require('../services/auth.service');
+const ApiResponse  = require('../utils/apiResponse');
+
+/** Shared token envelope shape — keeps responses consistent. */
+function _tokenEnvelope(accessToken, refreshToken) {
+  return {
+    accessToken,
+    refreshToken,
+    tokenType: 'Bearer',
+    expiresIn:  900,   // access token lifetime in seconds (15 min)
+  };
+}
 
 class AuthController {
-  /**
-   * POST /api/v1/auth/register
-   * Body: { email, password, name }
-   */
+
+  // ── POST /register ────────────────────────────────────────
   async register(req, res, next) {
     try {
       const { email, password, name } = req.body;
-      const { user, accessToken, refreshToken } = await authService.register({ email, password, name });
+      const { user, accessToken, refreshToken } =
+        await authService.register({ email, password, name });
 
       return ApiResponse.created(res, {
         user,
-        tokens: {
-          accessToken,
-          refreshToken,
-          tokenType: 'Bearer',
-          expiresIn: 900, // 15 min in seconds
-        },
+        tokens: _tokenEnvelope(accessToken, refreshToken),
       }, 'Registration successful');
-    } catch (err) {
-      next(err);
-    }
+    } catch (err) { next(err); }
   }
 
-  /**
-   * POST /api/v1/auth/login
-   * Body: { email, password }
-   */
+  // ── POST /login ───────────────────────────────────────────
   async login(req, res, next) {
     try {
       const { email, password } = req.body;
-      const { user, accessToken, refreshToken } = await authService.login({ email, password });
+      const { user, accessToken, refreshToken } =
+        await authService.login({ email, password });
 
       return ApiResponse.success(res, {
         user,
-        tokens: {
-          accessToken,
-          refreshToken,
-          tokenType: 'Bearer',
-          expiresIn: 900, // 15 min in seconds
-        },
+        tokens: _tokenEnvelope(accessToken, refreshToken),
       }, 'Login successful', StatusCodes.OK);
-    } catch (err) {
-      next(err);
-    }
+    } catch (err) { next(err); }
   }
 
-  /**
-   * POST /api/v1/auth/refresh
-   * Body: { refreshToken }
-   */
+  // ── POST /refresh ─────────────────────────────────────────
   async refresh(req, res, next) {
     try {
       const { refreshToken } = req.body;
-      const { accessToken, refreshToken: newRefreshToken } = await authService.refresh(refreshToken);
+      const { accessToken, refreshToken: newRefreshToken } =
+        await authService.refresh(refreshToken);
 
       return ApiResponse.success(res, {
-        tokens: {
-          accessToken,
-          refreshToken: newRefreshToken,
-          tokenType: 'Bearer',
-          expiresIn: 900,
-        },
+        tokens: _tokenEnvelope(accessToken, newRefreshToken),
       }, 'Tokens refreshed successfully');
-    } catch (err) {
-      next(err);
-    }
+    } catch (err) { next(err); }
   }
 
+  // ── POST /logout ──────────────────────────────────────────
   /**
-   * POST /api/v1/auth/logout
-   * Body: { refreshToken }
+   * Accepts both the refresh token (body) and access token (header).
+   * The access token is extracted from the Authorization header so
+   * callers don't have to duplicate it in the body.
    */
   async logout(req, res, next) {
     try {
       const { refreshToken } = req.body;
-      await authService.logout(refreshToken);
+
+      // Extract access token from header if present (may not be there
+      // if it has already expired, which is fine)
+      const authHeader = req.headers.authorization || '';
+      const accessToken = authHeader.startsWith('Bearer ')
+        ? authHeader.slice(7).trim()
+        : undefined;
+
+      await authService.logout({ refreshToken, accessToken });
 
       return ApiResponse.success(res, null, 'Logged out successfully');
-    } catch (err) {
-      next(err);
-    }
+    } catch (err) { next(err); }
+  }
+
+  // ── GET /me ───────────────────────────────────────────────
+  /**
+   * Returns the authenticated user's current profile.
+   * req.user is set by the authenticate middleware.
+   * Profile is always fetched fresh from the DB — never from JWT.
+   */
+  async me(req, res, next) {
+    try {
+      const user = await authService.getMe(req.user.id);
+      return ApiResponse.success(res, { user }, 'Profile retrieved successfully');
+    } catch (err) { next(err); }
   }
 }
 

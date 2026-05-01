@@ -1,6 +1,7 @@
 'use strict';
 
-const { Router } = require('express');
+const { Router }   = require('express');
+const authenticate = require('../middlewares/authenticate');
 const authController = require('../controllers/auth.controller');
 const {
   validateRegister,
@@ -11,9 +12,11 @@ const {
 
 const router = Router();
 
+// ── Public endpoints ──────────────────────────────────────────
+
 /**
  * @route   POST /api/v1/auth/register
- * @desc    Register a new user — returns access + refresh tokens
+ * @desc    Create account, receive token pair
  * @access  Public
  */
 router.post('/register', validateRegister, (req, res, next) =>
@@ -22,7 +25,7 @@ router.post('/register', validateRegister, (req, res, next) =>
 
 /**
  * @route   POST /api/v1/auth/login
- * @desc    Authenticate credentials — returns access + refresh tokens
+ * @desc    Authenticate credentials, receive token pair
  * @access  Public
  */
 router.post('/login', validateLogin, (req, res, next) =>
@@ -31,8 +34,9 @@ router.post('/login', validateLogin, (req, res, next) =>
 
 /**
  * @route   POST /api/v1/auth/refresh
- * @desc    Exchange a valid refresh token for a new token pair
- * @access  Public (token in body)
+ * @desc    Rotate refresh token → new access + refresh tokens
+ *          (theft detection: replaying an old token revokes the family)
+ * @access  Public  (refresh token in body)
  */
 router.post('/refresh', validateRefresh, (req, res, next) =>
   authController.refresh(req, res, next)
@@ -40,11 +44,22 @@ router.post('/refresh', validateRefresh, (req, res, next) =>
 
 /**
  * @route   POST /api/v1/auth/logout
- * @desc    Revoke the refresh token (server-side invalidation)
- * @access  Public (token in body)
+ * @desc    Revoke refresh token + blocklist access token
+ * @access  Public  (refresh token in body; access token read from Authorization header)
  */
 router.post('/logout', validateLogout, (req, res, next) =>
   authController.logout(req, res, next)
+);
+
+// ── Protected endpoints ───────────────────────────────────────
+
+/**
+ * @route   GET /api/v1/auth/me
+ * @desc    Return current user's fresh profile from the DB
+ * @access  Private (Bearer access token required)
+ */
+router.get('/me', authenticate, (req, res, next) =>
+  authController.me(req, res, next)
 );
 
 module.exports = router;

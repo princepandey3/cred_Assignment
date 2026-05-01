@@ -3,35 +3,51 @@
 /**
  * authenticate middleware
  * ═══════════════════════════════════════════════════════════════
- * Protects routes by validating the Bearer access token.
- * On success: attaches req.user = { id, email, name }
- * On failure: passes a 401 AppError to the error handler.
+ * Validates the Bearer access token on every protected route.
+ *
+ * Pipeline:
+ *   1. Extract "Authorization: Bearer <token>" header.
+ *   2. Call authService.verifyAccessToken() — this verifies the JWT
+ *      signature AND checks the Redis blocklist (handles logout).
+ *   3. Attach req.user = { id, email, name } for downstream handlers.
+ *   4. On any failure pass a 401 AppError to the error handler.
+ *
+ * verifyAccessToken is now async (blocklist check) so this
+ * middleware is also async.
  *
  * Usage:
  *   router.get('/protected', authenticate, controller.handler);
  * ═══════════════════════════════════════════════════════════════
  */
 
-const authService = require('../services/auth.service');
+const authService  = require('../services/auth.service');
 const { AppError } = require('./errorHandler');
 const { StatusCodes } = require('http-status-codes');
 
-function authenticate(req, _res, next) {
+async function authenticate(req, _res, next) {
   try {
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw new AppError('Authorization header missing or malformed.', StatusCodes.UNAUTHORIZED);
+      throw new AppError(
+        'Authorization header missing or malformed. Expected: Bearer <token>',
+        StatusCodes.UNAUTHORIZED
+      );
     }
 
-    const token = authHeader.slice(7); // strip "Bearer "
-    const payload = authService.verifyAccessToken(token);
+    const token   = authHeader.slice(7).trim();
+    if (!token) {
+      throw new AppError('Bearer token is empty.', StatusCodes.UNAUTHORIZED);
+    }
 
-    // Attach a clean user object — no JWT internals leak into req
+    // verifyAccessToken checks signature, expiry, token type, AND blocklist
+    const payload = await authService.verifyAccessToken(token);
+
+    // Expose a clean, minimal user object — no JWT internals leak into req
     req.user = {
-      id: payload.sub,
+      id:    payload.sub,
       email: payload.email,
-      name: payload.name,
+      name:  payload.name,
     };
 
     next();

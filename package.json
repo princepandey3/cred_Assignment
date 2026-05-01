@@ -22,9 +22,10 @@
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
     "db:seed": "node prisma/seed.js",
-    "test": "node src/tests/security.service.test.js && node src/tests/auth.service.test.js",
+    "test": "node src/tests/security.service.test.js && node src/tests/auth.service.test.js && node src/tests/auth.step5.test.js",
     "test:security": "node src/tests/security.service.test.js",
-    "test:auth": "node src/tests/auth.service.test.js"
+    "test:auth": "node src/tests/auth.service.test.js",
+    "test:auth:step5": "node src/tests/auth.step5.test.js"
   },
   "prisma": {
     "seed": "node prisma/seed.js"
