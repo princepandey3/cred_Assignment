@@ -8,17 +8,23 @@
  * Called once during app startup (before the first webhook arrives).
  * Keeps bot.js clean — all handler wiring lives here.
  *
+ * Middleware stack (applied globally, in order):
+ *   1. injectState   — attaches ctx.getState / ctx.setState / ctx.endFlow
+ *
  * Handler map:
- *   /start    → handleStart         (public)
- *   /help     → handleHelp          (public)
- *   /link     → handleLink          (public)
- *   /accounts → handleAccounts      (requires linked account)
+ *   /start    → handleStart          (public)
+ *   /help     → handleHelp           (public)
+ *   /cancel   → handleCancel         (public — always available)
+ *   /link     → handleLink           (public)
+ *   /accounts → handleAccounts       (requires linked account)
  *   unknown   → fallback reply
  * ═══════════════════════════════════════════════════════════════
  */
 
-const { requireLinkedAccount } = require('./middleware/telegramAuth');
+const { injectState }             = require('./middleware/stateMiddleware');
+const { requireLinkedAccount }    = require('./middleware/telegramAuth');
 const { handleStart, handleHelp } = require('./commands/start');
+const { handleCancel }            = require('./commands/cancel');
 const { handleLink }              = require('./commands/link');
 const { handleAccounts }          = require('./commands/accounts');
 const logger                      = require('../utils/logger');
@@ -38,21 +44,26 @@ function registerHandlers(bot) {
       error:      err.error?.message ?? String(err),
     });
 
-    // Best-effort reply — may fail if the original error was network-related
     ctx?.reply('⚠️ An unexpected error occurred\\. Please try again\\.', {
       parse_mode: 'MarkdownV2',
     }).catch(() => {});
   });
 
-  // ── Public commands (no account link required) ──────────────
+  // ── Global middleware ────────────────────────────────────────
+  // injectState runs on EVERY update so ctx.getState / ctx.setState
+  // are always available, regardless of which handler fires.
+  bot.use(injectState);
 
-  bot.command('start', handleStart);
-  bot.command('help',  handleHelp);
-  bot.command('link',  handleLink);
+  // ── Public commands (no account link required) ──────────────
+  bot.command('start',  handleStart);
+  bot.command('help',   handleHelp);
+  bot.command('link',   handleLink);
+
+  // /cancel is always available — must be registered BEFORE protected
+  // commands so a user can escape a flow regardless of link status.
+  bot.command('cancel', handleCancel);
 
   // ── Protected commands (linked account required) ────────────
-  // requireLinkedAccount resolves ctx.appUser or sends an error reply and stops.
-
   bot.command('accounts', requireLinkedAccount, handleAccounts);
 
   // ── Unknown command fallback ────────────────────────────────
@@ -60,6 +71,8 @@ function registerHandlers(bot) {
     const text = ctx.message.text ?? '';
 
     // Only respond to unhandled slash commands — ignore plain text
+    // (plain text is consumed by flow step handlers; if we're here
+    // with plain text it means no flow is active, so silently ignore)
     if (text.startsWith('/')) {
       await ctx.reply(
         `❓ Unknown command\\. Use /help to see available commands\\.`,
