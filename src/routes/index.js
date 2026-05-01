@@ -8,8 +8,12 @@ const router = Router();
 // --- Core ---
 router.use('/health', healthRouter);
 
-// --- Future domain routers (uncomment as you build them) ---
-// router.use('/auth',     require('./auth'));
+// --- Domain routers ---
+router.use('/auth', require('./auth'));
+// router.use('/content',  require('./content'));
+// router.use('/platforms',require('./platforms'));
+// router.use('/publish',  require('./publish'));
+// router.use('/analytics',require('./analytics'));
 // router.use('/content',  require('./content'));
 // router.use('/platforms',require('./platforms'));
 // router.use('/publish',  require('./publish'));

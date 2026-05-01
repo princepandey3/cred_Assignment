@@ -45,6 +45,9 @@ function errorHandler(err, req, res, _next) {
 
   // Operational / known errors (thrown intentionally)
   if (err.isOperational) {
+    if (err.errors) {
+      return ApiResponse.error(res, err.message, err.statusCode || StatusCodes.BAD_REQUEST, err.errors);
+    }
     return ApiResponse.error(res, err.message, err.statusCode || StatusCodes.BAD_REQUEST);
   }
 

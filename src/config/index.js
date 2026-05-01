@@ -49,6 +49,8 @@ const config = {
       return 'dev_jwt_secret_change_me';
     })(),
     jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
+    jwtAccessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '15m',
+    jwtRefreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
     corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:3000',
   },
 

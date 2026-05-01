@@ -22,8 +22,9 @@
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
     "db:seed": "node prisma/seed.js",
-    "test": "node src/tests/security.service.test.js",
-    "test:security": "node src/tests/security.service.test.js"
+    "test": "node src/tests/security.service.test.js && node src/tests/auth.service.test.js",
+    "test:security": "node src/tests/security.service.test.js",
+    "test:auth": "node src/tests/auth.service.test.js"
   },
   "prisma": {
     "seed": "node prisma/seed.js"
@@ -41,6 +42,7 @@
     "http-status-codes": "^2.3.0",
     "ioredis": "^5.3.2",
     "joi": "^17.11.0",
+    "jsonwebtoken": "^9.0.3",
     "morgan": "^1.10.0",
     "pg": "^8.11.3",
     "prisma": "^7.8.0",
