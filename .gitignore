@@ -1,0 +1,23 @@
+node_modules/
+dist/
+coverage/
+logs/
+*.log
+
+# Environment secrets
+.env
+.env.local
+.env.*.local
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# Editor artifacts
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker local overrides
+docker-compose.override.yml
